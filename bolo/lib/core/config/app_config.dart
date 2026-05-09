@@ -1,9 +1,7 @@
 class AppConfig {
   // ─── Campay Mobile Money (Cameroun) ──────────────────────────────────────
-  // Inscrivez-vous sur https://campay.net pour obtenir vos identifiants
-  // En production, utilisez Firebase Remote Config ou une Cloud Function proxy
-  // pour ne jamais exposer ces clés dans le binaire de l'application.
-  static const String campayBaseUrl = 'https://demo.campay.net/api/'; // sandbox
+  // Sandbox : demo.campay.net  |  Production : campay.net
+  static const String campayBaseUrl = 'https://demo.campay.net/api/';
   // static const String campayBaseUrl = 'https://campay.net/api/'; // production
   static const String campayUsername = 'YOUR_CAMPAY_USERNAME';
   static const String campayPassword = 'YOUR_CAMPAY_PASSWORD';

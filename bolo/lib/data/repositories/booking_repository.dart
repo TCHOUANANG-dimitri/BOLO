@@ -1,13 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/booking_model.dart';
 import '../models/provider_model.dart';
-import '../../core/services/firestore_service.dart';
+import '../../core/services/local_db_service.dart';
 import 'mock_data.dart';
 
 class BookingRepository {
-  final FirestoreService _db = FirestoreService();
-
-  // ─── Créer une réservation ────────────────────────────────────────────────
+  final LocalDbService _db = LocalDbService();
 
   Future<BookingModel> create({
     required ProviderModel provider,
@@ -34,15 +31,9 @@ class BookingRepository {
       createdAt: DateTime.now(),
     );
 
-    await _db.setDoc('bookings', id, {
-      ...booking.toFirestore(),
-      'createdAt': FieldValue.serverTimestamp(),
-    }, merge: false);
-
+    await _db.setDoc('bookings', id, booking.toLocal(), merge: false);
     return booking;
   }
-
-  // ─── Lire ─────────────────────────────────────────────────────────────────
 
   Future<List<BookingModel>> getUserBookings(String userId) async {
     try {
@@ -53,7 +44,7 @@ class BookingRepository {
         orderBy: 'createdAt',
         descending: true,
       );
-      return docs.map(BookingModel.fromFirestore).toList();
+      return docs.map(BookingModel.fromLocal).toList();
     } catch (_) {
       return List.from(MockData.bookings);
     }
@@ -66,15 +57,13 @@ class BookingRepository {
             whereValue: userId,
             orderBy: 'createdAt',
             descending: true)
-        .map((docs) => docs.map(BookingModel.fromFirestore).toList());
+        .map((docs) => docs.map(BookingModel.fromLocal).toList());
   }
-
-  // ─── Mettre à jour ────────────────────────────────────────────────────────
 
   Future<void> updateStatus(String bookingId, BookingStatus status) async {
     await _db.updateDoc('bookings', bookingId, {
       'status': status.name,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -87,7 +76,7 @@ class BookingRepository {
       'paymentRef': paymentRef,
       'paymentMethod': paymentMethod,
       'status': BookingStatus.confirmed.name,
-      'paidAt': FieldValue.serverTimestamp(),
+      'paidAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -95,18 +84,17 @@ class BookingRepository {
     await updateStatus(bookingId, BookingStatus.cancelled);
   }
 
-  // ─── Vérifier si une réservation complète existe (pour les avis) ──────────
-
-  Future<bool> hasCompletedBooking(
-      String userId, String providerId) async {
+  Future<bool> hasCompletedBooking(String userId, String providerId) async {
     try {
-      final docs = await _db.col('bookings')
-          .where('userId', isEqualTo: userId)
-          .where('providerId', isEqualTo: providerId)
-          .where('status', isEqualTo: BookingStatus.completed.name)
-          .limit(1)
-          .get();
-      return docs.docs.isNotEmpty;
+      final docs = await _db.queryDocs(
+        'bookings',
+        where: {
+          'userId': userId,
+          'providerId': providerId,
+          'status': BookingStatus.completed.name,
+        },
+      );
+      return docs.isNotEmpty;
     } catch (_) {
       return true; // mode démo : autoriser les avis
     }

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class UserModel {
   final String id;
   final String fullName;
@@ -35,13 +33,13 @@ class UserModel {
     return fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
   }
 
-  // ─── Firestore ────────────────────────────────────────────────────────────
+  // ─── Local DB ─────────────────────────────────────────────────────────────
 
-  factory UserModel.fromFirestore(Map<String, dynamic> data) {
+  factory UserModel.fromLocal(Map<String, dynamic> data) {
     DateTime createdAt = DateTime.now();
     final rawDate = data['createdAt'];
-    if (rawDate is Timestamp) {
-      createdAt = rawDate.toDate();
+    if (rawDate is String) {
+      createdAt = DateTime.tryParse(rawDate) ?? DateTime.now();
     } else if (rawDate is DateTime) {
       createdAt = rawDate;
     }
@@ -61,7 +59,11 @@ class UserModel {
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  // Alias pour la compatibilité avec les repositories existants
+  factory UserModel.fromFirestore(Map<String, dynamic> data) =>
+      UserModel.fromLocal(data);
+
+  Map<String, dynamic> toLocal() => {
         'id': id,
         'fullName': fullName,
         'email': email,
@@ -70,9 +72,12 @@ class UserModel {
         'location': location,
         'isProvider': isProvider,
         'twoFactorEnabled': twoFactorEnabled,
-        'createdAt': Timestamp.fromDate(createdAt),
+        'createdAt': createdAt.toIso8601String(),
         'favoriteProviderIds': favoriteProviderIds,
       };
+
+  // Alias pour la compatibilité
+  Map<String, dynamic> toFirestore() => toLocal();
 
   // ─── copyWith ─────────────────────────────────────────────────────────────
 

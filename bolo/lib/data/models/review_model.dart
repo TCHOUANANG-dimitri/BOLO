@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class ReviewModel {
   final String id;
   final String providerId;
@@ -10,7 +8,7 @@ class ReviewModel {
   final String comment;
   final DateTime date;
   final String? providerReply;
-  final List<String> likes; // IDs des utilisateurs qui ont liké
+  final List<String> likes;
 
   const ReviewModel({
     required this.id,
@@ -39,14 +37,12 @@ class ReviewModel {
     return 'Il y a ${(diff.inDays / 30).floor()} mois';
   }
 
-  // ─── Firestore ────────────────────────────────────────────────────────────
+  // ─── Local DB ─────────────────────────────────────────────────────────────
 
-  factory ReviewModel.fromFirestore(Map<String, dynamic> data) {
+  factory ReviewModel.fromLocal(Map<String, dynamic> data) {
     DateTime date = DateTime.now();
     final rawDate = data['date'];
-    if (rawDate is Timestamp) {
-      date = rawDate.toDate();
-    }
+    if (rawDate is String) date = DateTime.tryParse(rawDate) ?? date;
 
     return ReviewModel(
       id: data['id'] ?? '',
@@ -62,7 +58,10 @@ class ReviewModel {
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  factory ReviewModel.fromFirestore(Map<String, dynamic> data) =>
+      ReviewModel.fromLocal(data);
+
+  Map<String, dynamic> toLocal() => {
         'id': id,
         'providerId': providerId,
         'authorId': authorId,
@@ -70,10 +69,12 @@ class ReviewModel {
         'authorAvatar': authorAvatar,
         'rating': rating,
         'comment': comment,
-        'date': Timestamp.fromDate(date),
+        'date': date.toIso8601String(),
         'providerReply': providerReply,
         'likes': likes,
       };
+
+  Map<String, dynamic> toFirestore() => toLocal();
 
   ReviewModel copyWith({
     String? providerReply,

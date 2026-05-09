@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/auth_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/user_repository.dart';
@@ -14,9 +13,6 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.initial;
   UserModel? _user;
   String? _error;
-
-  // Stocké lors de l'envoi OTP, utilisé lors de la vérification
-  String? _verificationId;
   bool _awaitingOtp = false;
 
   AuthStatus get status => _status;
@@ -24,7 +20,6 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get awaitingOtp => _awaitingOtp;
-  String? get verificationId => _verificationId;
 
   // ─── Initialisation ───────────────────────────────────────────────────────
 
@@ -33,18 +28,16 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser != null) {
-        final userData = await _userRepo.getById(firebaseUser.uid);
-        _user = userData ?? _buildFallbackUser(firebaseUser);
+      final userData = await _authService.currentUserData();
+      if (userData != null) {
+        _user = UserModel.fromLocal(userData);
         _status = AuthStatus.authenticated;
       } else {
-        // Mode démo sans Firebase : auto-connecté
+        // Mode démo : auto-connecté avec données mock
         _user = MockData.currentUser;
         _status = AuthStatus.authenticated;
       }
     } catch (_) {
-      // Firebase non configuré : mode démo
       _user = MockData.currentUser;
       _status = AuthStatus.authenticated;
     }
@@ -52,7 +45,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── Connexion (email + mot de passe + 2FA si activé) ────────────────────
+  // ─── Connexion ────────────────────────────────────────────────────────────
 
   Future<bool> login(String email, String password) async {
     _status = AuthStatus.loading;
@@ -60,33 +53,31 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final cred = await _authService.signInWithEmail(
+      final userData = await _authService.signInWithEmail(
         email: email,
         password: password,
       );
+      _user = UserModel.fromLocal(userData);
 
-      final userData = await _userRepo.getById(cred.user!.uid);
-      _user = userData ?? _buildFallbackUser(cred.user!);
-
-      // Si 2FA activé → envoyer OTP, ne pas marquer comme authentifié
+      // Si 2FA activé → demander OTP
       if (_user!.twoFactorEnabled && _user!.phone.isNotEmpty) {
-        await _sendOtpInternal(_user!.phone);
+        await _authService.sendPhoneOtp(phone: _user!.phone);
         _awaitingOtp = true;
         _status = AuthStatus.unauthenticated;
         notifyListeners();
-        return false; // Indique au caller qu'il faut l'OTP
+        return false;
       }
 
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _error = _firebaseError(e.code);
+    } on AuthException catch (e) {
+      _error = e.message;
       _status = AuthStatus.error;
       notifyListeners();
       return false;
     } catch (_) {
-      // Fallback démo
+      // Fallback démo si aucun compte créé localement
       if (email.isNotEmpty && password.length >= 6) {
         _user = MockData.currentUser;
         _status = AuthStatus.authenticated;
@@ -114,31 +105,20 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final cred = await _authService.registerWithEmail(
+      final userData = await _authService.registerWithEmail(
         email: email,
         password: password,
         fullName: fullName,
         phone: phone,
         isProvider: isProvider,
       );
-
-      _user = UserModel(
-        id: cred.user!.uid,
-        fullName: fullName,
-        email: email,
-        phone: phone,
-        isProvider: isProvider,
-        createdAt: DateTime.now(),
-      );
-
-      // Envoyer OTP pour vérifier le téléphone (2FA d'inscription)
-      await _sendOtpInternal(phone);
+      _user = UserModel.fromLocal(userData);
       _awaitingOtp = true;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _error = _firebaseError(e.code);
+    } on AuthException catch (e) {
+      _error = e.message;
       _status = AuthStatus.error;
       notifyListeners();
       return false;
@@ -159,111 +139,40 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ─── Envoi OTP ────────────────────────────────────────────────────────────
+  // ─── OTP ──────────────────────────────────────────────────────────────────
 
   Future<void> sendOtp(String phone) async {
-    await _sendOtpInternal(phone);
+    await _authService.sendPhoneOtp(phone: phone);
   }
-
-  Future<void> _sendOtpInternal(String phone) async {
-    try {
-      await _authService.sendPhoneOtp(
-        phone: phone,
-        onCodeSent: (id) {
-          _verificationId = id;
-          notifyListeners();
-        },
-        onError: (err) {
-          _error = err;
-          notifyListeners();
-        },
-        onAutoVerified: (credential) async {
-          await _completeOtpVerification(credential: credential);
-        },
-      );
-    } catch (_) {
-      // Firebase phone auth non disponible : mode démo
-    }
-  }
-
-  // ─── Vérification OTP ─────────────────────────────────────────────────────
 
   Future<bool> verifyOtp(String code) async {
     _status = AuthStatus.loading;
     notifyListeners();
 
-    try {
-      if (_verificationId != null) {
-        final credential = PhoneAuthProvider.credential(
-          verificationId: _verificationId!,
-          smsCode: code,
-        );
-        await _completeOtpVerification(credential: credential);
-        return true;
-      } else {
-        // Mode démo : accepter tout code à 6 chiffres
-        if (code.length == 6 && RegExp(r'^\d{6}$').hasMatch(code)) {
-          await _finalizeAuth();
-          return true;
-        }
-        _error = 'Code invalide';
-        _status = AuthStatus.error;
-        notifyListeners();
-        return false;
+    // Mode local : tout code à 6 chiffres est valide
+    if (_authService.verifyOtp(code)) {
+      _awaitingOtp = false;
+      if (_user != null) {
+        _user = _user!.copyWith(twoFactorEnabled: true);
+        try {
+          await _userRepo.enable2FA(_user!.id);
+        } catch (_) {}
       }
-    } on FirebaseAuthException catch (e) {
-      _error = _firebaseError(e.code);
-      _status = AuthStatus.error;
+      _status = AuthStatus.authenticated;
       notifyListeners();
-      return false;
-    } catch (_) {
-      // Fallback démo
-      if (code.length == 6) {
-        await _finalizeAuth();
-        return true;
-      }
-      _error = 'Code invalide';
-      _status = AuthStatus.error;
-      notifyListeners();
-      return false;
+      return true;
     }
-  }
 
-  Future<void> _completeOtpVerification({
-    required PhoneAuthCredential credential,
-  }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        await user.linkWithCredential(credential);
-      } on FirebaseAuthException catch (e) {
-        if (e.code != 'provider-already-linked' &&
-            e.code != 'credential-already-in-use') rethrow;
-      }
-      // Activer 2FA sur le profil
-      await _userRepo.enable2FA(user.uid);
-    } else {
-      await FirebaseAuth.instance.signInWithCredential(credential);
-    }
-    await _finalizeAuth();
-  }
-
-  Future<void> _finalizeAuth() async {
-    _awaitingOtp = false;
-    _verificationId = null;
-    if (_user != null) {
-      _user = _user!.copyWith(twoFactorEnabled: true);
-    }
-    _status = AuthStatus.authenticated;
+    _error = 'Code invalide — entrez 6 chiffres';
+    _status = AuthStatus.error;
     notifyListeners();
+    return false;
   }
 
   // ─── Déconnexion ──────────────────────────────────────────────────────────
 
   Future<void> logout() async {
-    try {
-      await _authService.signOut();
-    } catch (_) {}
+    await _authService.signOut();
     _user = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
@@ -285,12 +194,13 @@ class AuthProvider extends ChangeNotifier {
         phone: phone,
         location: location,
       );
-      _user = updated ?? _user!.copyWith(
-        fullName: fullName,
-        phone: phone,
-        location: location,
-        avatarUrl: avatarUrl,
-      );
+      _user = updated ??
+          _user!.copyWith(
+            fullName: fullName,
+            phone: phone,
+            location: location,
+            avatarUrl: avatarUrl,
+          );
     } catch (_) {
       _user = _user!.copyWith(
         fullName: fullName,
@@ -315,7 +225,6 @@ class AuthProvider extends ChangeNotifier {
     }
     _user = _user!.copyWith(favoriteProviderIds: favorites);
     notifyListeners();
-
     try {
       await _userRepo.toggleFavorite(_user!.id, providerId, add);
     } catch (_) {}
@@ -323,37 +232,4 @@ class AuthProvider extends ChangeNotifier {
 
   bool isFavorite(String providerId) =>
       _user?.favoriteProviderIds.contains(providerId) ?? false;
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  UserModel _buildFallbackUser(User firebaseUser) => UserModel(
-        id: firebaseUser.uid,
-        fullName: firebaseUser.displayName ?? 'Utilisateur',
-        email: firebaseUser.email ?? '',
-        phone: firebaseUser.phoneNumber ?? '',
-        createdAt: DateTime.now(),
-      );
-
-  String _firebaseError(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return 'Aucun compte trouvé avec cet email';
-      case 'wrong-password':
-        return 'Mot de passe incorrect';
-      case 'email-already-in-use':
-        return 'Cet email est déjà utilisé';
-      case 'weak-password':
-        return 'Mot de passe trop faible (min. 6 caractères)';
-      case 'invalid-email':
-        return 'Email invalide';
-      case 'invalid-verification-code':
-        return 'Code OTP incorrect';
-      case 'session-expired':
-        return 'Session expirée. Renvoyez le code.';
-      case 'too-many-requests':
-        return 'Trop de tentatives. Réessayez plus tard.';
-      default:
-        return 'Erreur : $code';
-    }
-  }
 }

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum BookingStatus { pending, confirmed, inProgress, completed, cancelled }
 
 class BookingModel {
@@ -60,21 +58,19 @@ class BookingModel {
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
-  // ─── Firestore ────────────────────────────────────────────────────────────
+  // ─── Local DB ─────────────────────────────────────────────────────────────
 
-  factory BookingModel.fromFirestore(Map<String, dynamic> data) {
+  factory BookingModel.fromLocal(Map<String, dynamic> data) {
     DateTime parseDate(dynamic v) {
-      if (v is Timestamp) return v.toDate();
+      if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
       if (v is DateTime) return v;
       return DateTime.now();
     }
 
-    BookingStatus parseStatus(String? s) {
-      return BookingStatus.values.firstWhere(
-        (e) => e.name == s,
-        orElse: () => BookingStatus.pending,
-      );
-    }
+    BookingStatus parseStatus(String? s) => BookingStatus.values.firstWhere(
+          (e) => e.name == s,
+          orElse: () => BookingStatus.pending,
+        );
 
     return BookingModel(
       id: data['id'] ?? '',
@@ -95,21 +91,26 @@ class BookingModel {
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  factory BookingModel.fromFirestore(Map<String, dynamic> data) =>
+      BookingModel.fromLocal(data);
+
+  Map<String, dynamic> toLocal() => {
         'id': id,
         'providerId': providerId,
         'providerName': providerName,
         'providerSpecialty': providerSpecialty,
         'providerAvatar': providerAvatar,
         'userId': userId,
-        'date': Timestamp.fromDate(date),
+        'date': date.toIso8601String(),
         'timeSlot': timeSlot,
         'location': location,
         'note': note,
         'status': status.name,
         'totalPrice': totalPrice,
-        'createdAt': Timestamp.fromDate(createdAt),
+        'createdAt': createdAt.toIso8601String(),
         'paymentRef': paymentRef,
         'paymentMethod': paymentMethod,
       };
+
+  Map<String, dynamic> toFirestore() => toLocal();
 }
