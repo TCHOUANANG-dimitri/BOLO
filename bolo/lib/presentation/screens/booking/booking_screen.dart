@@ -8,6 +8,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/provider_model.dart';
 import '../../../data/repositories/mock_data.dart';
 import '../../../data/repositories/provider_repository.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
 import '../../widgets/bolo_button.dart';
 import '../../widgets/provider_avatar.dart';
@@ -68,9 +69,14 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
 
+    final auth = context.read<AuthProvider>();
+    final userId = auth.user?.id ?? 'demo_user';
+    final bookingRef = 'BOL-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
     // Save booking (pending payment)
-    await context.read<BookingProvider>().createBooking(
+    final booking = await context.read<BookingProvider>().createBooking(
       provider: _provider!,
+      userId: userId,
       date: _selectedDate,
       timeSlot: '$_selectedTime - ${_timeAfterHours(_selectedTime!, _selectedDuration)}',
       location: _locationCtrl.text.trim(),
@@ -86,7 +92,8 @@ class _BookingScreenState extends State<BookingScreen> {
         builder: (_) => PaymentScreen(
           amount: _totalPrice,
           providerName: _provider!.name,
-          bookingRef: 'BOL-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+          bookingRef: bookingRef,
+          bookingId: booking?.id,
         ),
       ),
     );

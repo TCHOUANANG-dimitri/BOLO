@@ -8,6 +8,7 @@ import 'presentation/providers/home_provider.dart';
 import 'presentation/providers/search_provider.dart';
 import 'presentation/providers/messages_provider.dart';
 import 'presentation/providers/booking_provider.dart';
+import 'presentation/providers/review_provider.dart';
 import 'router/app_router.dart';
 
 class BoloApp extends StatelessWidget {
@@ -22,6 +23,7 @@ class BoloApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SearchProvider()),
         ChangeNotifierProvider(create: (_) => MessagesProvider()),
         ChangeNotifierProvider(create: (_) => BookingProvider()),
+        ChangeNotifierProvider(create: (_) => ReviewProvider()),
       ],
       child: Builder(
         builder: (context) {
@@ -32,7 +34,6 @@ class BoloApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             routerConfig: router,
             builder: (context, child) {
-              // Force portrait
               SystemChrome.setPreferredOrientations([
                 DeviceOrientation.portraitUp,
                 DeviceOrientation.portraitDown,

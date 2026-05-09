@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/booking_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
 import '../../widgets/provider_avatar.dart';
 
@@ -25,7 +26,8 @@ class _BookingsScreenState extends State<BookingsScreen>
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<BookingProvider>().loadBookings();
+      final userId = context.read<AuthProvider>().user?.id ?? 'demo_user';
+      context.read<BookingProvider>().loadBookings(userId);
     });
   }
 
