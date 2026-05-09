@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../widgets/bolo_button.dart';
+import '../../widgets/bolo_logo.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -21,43 +22,16 @@ class WelcomeScreen extends StatelessWidget {
               children: [
                 const Spacer(flex: 2),
 
-                // Logo
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(26),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.25),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Image.asset(
-                      'assets/images/logo_white.png',
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.location_on_rounded,
-                        color: AppColors.primary,
-                        size: 48,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // App name
+                // Logo BOLO
+                const BoloLogo(size: 110, showText: false),
+                const SizedBox(height: 20),
                 Text(
                   'BOLO',
                   style: AppTextStyles.displayLarge.copyWith(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 3,
-                    fontSize: 40,
+                    fontSize: 42,
                   ),
                 ),
                 const SizedBox(height: 8),

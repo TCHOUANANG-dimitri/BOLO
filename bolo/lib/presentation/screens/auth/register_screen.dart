@@ -62,7 +62,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
     if (success) {
       final phone = Uri.encodeComponent(_phoneCtrl.text.trim());
-      context.go('/otp/$phone?dest=/home');
+      final dest = _isProvider ? '/provider-register' : '/home';
+      context.go('/otp/$phone?dest=$dest');
     }
   }
 

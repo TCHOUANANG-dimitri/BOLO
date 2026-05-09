@@ -5,39 +5,27 @@ import '../../core/constants/app_text_styles.dart';
 class BoloLogo extends StatelessWidget {
   final double size;
   final bool showText;
+  final bool onDark; // true = fond sombre, affiche la version blanche
 
-  const BoloLogo({super.key, this.size = 80, this.showText = false});
+  const BoloLogo({
+    super.key,
+    this.size = 80,
+    this.showText = false,
+    this.onDark = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        SizedBox(
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(size * 0.25),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(size * 0.18),
-            child: Image.asset(
-              'assets/images/logo_white.png',
-              color: Colors.white,
-              errorBuilder: (_, __, ___) => Icon(
-                Icons.location_on_rounded,
-                color: Colors.white,
-                size: size * 0.55,
-              ),
-            ),
+          child: Image.asset(
+            'assets/images/logo.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => _fallback(),
           ),
         ),
         if (showText) ...[
@@ -45,13 +33,27 @@ class BoloLogo extends StatelessWidget {
           Text(
             'BOLO',
             style: AppTextStyles.headlineLarge.copyWith(
-              color: AppColors.primary,
+              color: onDark ? Colors.white : AppColors.primary,
               fontWeight: FontWeight.w800,
               letterSpacing: 2,
             ),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _fallback() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(size * 0.25),
+      ),
+      child: Icon(
+        Icons.location_on_rounded,
+        color: Colors.white,
+        size: size * 0.55,
+      ),
     );
   }
 }

@@ -18,6 +18,14 @@ import '../presentation/screens/booking/booking_screen.dart';
 import '../presentation/screens/profile/bookings_screen.dart';
 import '../presentation/screens/profile/favorites_screen.dart';
 import '../presentation/screens/profile/edit_profile_screen.dart';
+import '../presentation/screens/provider/provider_register_screen.dart';
+import '../presentation/screens/provider/identity_verification_screen.dart';
+import '../presentation/screens/provider/provider_contract_screen.dart';
+import '../presentation/screens/provider/provider_dashboard_screen.dart';
+import '../presentation/screens/provider/provider_requests_screen.dart';
+import '../presentation/screens/provider/provider_wallet_screen.dart';
+import '../presentation/screens/provider/provider_loyalty_screen.dart';
+import '../presentation/screens/provider/provider_messages_screen.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -35,6 +43,14 @@ class AppRouter {
   static const String myBookings = '/bookings';
   static const String favorites = '/favorites';
   static const String editProfile = '/edit-profile';
+  static const String providerRegister = '/provider-register';
+  static const String identityVerification = '/identity-verification';
+  static const String providerContract = '/provider-contract';
+  static const String providerDashboard = '/provider-dashboard';
+  static const String providerRequests = '/provider-requests';
+  static const String providerWallet = '/provider-wallet';
+  static const String providerLoyalty = '/provider-loyalty';
+  static const String providerMessages = '/provider-messages';
 
   static GoRouter router(BuildContext context) {
     return GoRouter(
@@ -42,14 +58,20 @@ class AppRouter {
       redirect: (context, state) {
         final auth = context.read<AuthProvider>();
         final isAuth = auth.isAuthenticated;
-        final onSplash = state.matchedLocation == splash;
-        final onOnboarding = state.matchedLocation == onboarding;
-        final onAuth = state.matchedLocation == login ||
-            state.matchedLocation == register ||
-            state.matchedLocation == welcome ||
-            state.matchedLocation.startsWith('/otp');
+        final loc = state.matchedLocation;
+        final onSplash = loc == splash;
+        final onOnboarding = loc == onboarding;
+        final onAuth = loc == login ||
+            loc == register ||
+            loc == welcome ||
+            loc.startsWith('/otp');
+        final onProviderOnboarding = loc == providerRegister ||
+            loc == identityVerification ||
+            loc == providerContract;
 
-        if (onSplash || onOnboarding || onAuth) return null;
+        if (onSplash || onOnboarding || onAuth || onProviderOnboarding) {
+          return null;
+        }
         if (!isAuth) return welcome;
         return null;
       },
@@ -145,6 +167,42 @@ class AppRouter {
         GoRoute(
           path: editProfile,
           builder: (context, state) => const EditProfileScreen(),
+        ),
+
+        // Provider onboarding
+        GoRoute(
+          path: providerRegister,
+          builder: (context, state) => const ProviderRegisterScreen(),
+        ),
+        GoRoute(
+          path: identityVerification,
+          builder: (context, state) => const IdentityVerificationScreen(),
+        ),
+        GoRoute(
+          path: providerContract,
+          builder: (context, state) => const ProviderContractScreen(),
+        ),
+
+        // Provider dashboard area
+        GoRoute(
+          path: providerDashboard,
+          builder: (context, state) => const ProviderDashboardScreen(),
+        ),
+        GoRoute(
+          path: providerRequests,
+          builder: (context, state) => const ProviderRequestsScreen(),
+        ),
+        GoRoute(
+          path: providerWallet,
+          builder: (context, state) => const ProviderWalletScreen(),
+        ),
+        GoRoute(
+          path: providerLoyalty,
+          builder: (context, state) => const ProviderLoyaltyScreen(),
+        ),
+        GoRoute(
+          path: providerMessages,
+          builder: (context, state) => const ProviderMessagesScreen(),
         ),
       ],
       errorBuilder: (context, state) => Scaffold(
